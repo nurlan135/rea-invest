@@ -1,0 +1,158 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  AGENT
+}
+
+enum ContactType {
+  OWNER
+  BUYER
+}
+
+enum DocumentType {
+  CIXARIS
+  MUQAVILE
+  SERENCAM
+}
+
+enum RepairStatus {
+  TEMIRLI
+  TEMIRSIZ
+}
+
+enum PropertyType {
+  HEYET_EVI
+  OBYEKT
+  MENZIL
+  TORPAQ
+}
+
+enum PropertyPurpose {
+  SATIS
+  ICARE
+}
+
+enum PropertyStatus {
+  YENI
+  GOZLEMEDE
+  BEH_VERILIB
+  SATILIB
+  ICAREYE_VERILIB
+}
+
+// Models
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  fullName     String
+  password     String
+  role         UserRole @default(AGENT)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  properties   Property[]
+  transactions Transaction[]
+}
+
+model Contact {
+  id         Int         @id @default(autoincrement())
+  firstName  String
+  lastName   String
+  fatherName String?
+  phone      String      @unique
+  address    String?
+  type       ContactType
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  
+  ownedProperties    Property[]    @relation("OwnedProperties")
+  boughtTransactions Transaction[] @relation("BoughtTransactions")
+}
+
+model Property {
+  id               Int             @id @default(autoincrement())
+  documentNumber   String          @unique
+  registrationDate DateTime        @default(now())
+  
+  district         String
+  projectName      String?
+  streetAddress    String
+  apartmentNumber  String?
+  
+  roomCount        String
+  area             Float
+  floor            Int
+  documentType     DocumentType
+  repairStatus     RepairStatus
+  propertyType     PropertyType
+  purpose          PropertyPurpose
+  status           PropertyStatus  @default(YENI)
+  lastFollowUpDate DateTime?
+  notes            String?
+  
+  ownerId          Int
+  owner            Contact         @relation("OwnedProperties", fields: [ownerId], references: [id])
+  agentId          Int
+  agent            User            @relation(fields: [agentId], references: [id])
+  
+  transaction      Transaction?
+  
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+model Transaction {
+  id                   Int       @id @default(autoincrement())
+  propertyId           Int       @unique
+  property             Property  @relation(fields: [propertyId], references: [id])
+  
+  purchasePrice        Decimal?
+  repairExpense        Decimal?  @default(0)
+  documentationExpense Decimal?  @default(0)
+  interestExpense      Decimal?  @default(0)
+  otherExpense         Decimal?  @default(0)
+  
+  salePrice            Decimal?
+  serviceFee           Decimal?
+  saleDate             DateTime?
+  profit               Decimal?
+  
+  buyerId              Int?
+  buyer                Contact?  @relation("BoughtTransactions", fields: [buyerId], references: [id])
+  
+  purchasingEntity     String    @default("REA INVEST")
+  
+  agentId              Int
+  agent                User      @relation(fields: [agentId], references: [id])
+  
+  deposit              Deposit?
+  
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model Deposit {
+  id            Int         @id @default(autoincrement())
+  transactionId Int         @unique
+  transaction   Transaction @relation(fields: [transactionId], references: [id])
+  amount        Decimal
+  depositDate   DateTime
+  deadline      DateTime
+  isExpired     Boolean     @default(false)
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}

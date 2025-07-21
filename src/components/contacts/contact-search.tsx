@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Check, ChevronsUpDown, Phone, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
+import { useSearchCache } from '@/hooks/useSearchCache'
 
 interface Contact {
   id: number
@@ -38,9 +39,46 @@ export function ContactSearch({
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [contacts, setContacts] = useState<Contact[]>([])
+  const [recentContacts, setRecentContacts] = useState<Contact[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingRecent, setIsLoadingRecent] = useState(false)
   
   const debouncedSearchQuery = useDebounce(searchQuery, 300)
+  const searchCache = useSearchCache<Contact[]>({ maxAge: 3 * 60 * 1000, maxSize: 100 }) // 3 minutes cache
+  const recentCache = useSearchCache<Contact[]>({ maxAge: 10 * 60 * 1000, maxSize: 10 }) // 10 minutes for recent
+
+  // Load recent contacts when component mounts or popover opens
+  useEffect(() => {
+    const loadRecentContacts = async () => {
+      if (!open) return
+      
+      const cacheKey = 'recent-owners'
+      const cachedResults = recentCache.get(cacheKey)
+      
+      if (cachedResults) {
+        setRecentContacts(cachedResults)
+        return
+      }
+      
+      if (isLoadingRecent) return
+      
+      setIsLoadingRecent(true)
+      try {
+        const response = await fetch('/api/contacts/recent?limit=10&type=OWNER')
+        if (response.ok) {
+          const results = await response.json()
+          setRecentContacts(results)
+          recentCache.set(cacheKey, results)
+        }
+      } catch (error) {
+        console.error('Failed to load recent contacts:', error)
+      } finally {
+        setIsLoadingRecent(false)
+      }
+    }
+
+    loadRecentContacts()
+  }, [open])
 
   // Search contacts when query changes
   useEffect(() => {
@@ -50,12 +88,21 @@ export function ContactSearch({
         return
       }
 
+      const cacheKey = `search-${debouncedSearchQuery.toLowerCase()}`
+      const cachedResults = searchCache.get(cacheKey)
+      
+      if (cachedResults) {
+        setContacts(cachedResults)
+        return
+      }
+
       setIsLoading(true)
       try {
         const response = await fetch(`/api/contacts/search?q=${encodeURIComponent(debouncedSearchQuery)}&limit=20`)
         if (response.ok) {
           const results = await response.json()
           setContacts(results)
+          searchCache.set(cacheKey, results)
         } else {
           setContacts([])
         }
@@ -76,10 +123,32 @@ export function ContactSearch({
     setSearchQuery("")
   }
 
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (open) {
+      // Escape to close
+      if (e.key === 'Escape') {
+        setOpen(false)
+        setSearchQuery("")
+        e.preventDefault()
+      }
+      // Ctrl/Cmd + K to focus search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault()
+        // Focus will be handled by Command component
+      }
+    }
+  }, [open])
+
   const handleClear = () => {
     onContactSelect(null)
     setSearchQuery("")
   }
+
+  // Add keyboard event listener
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 
   return (
     <div className="space-y-2">
@@ -112,10 +181,15 @@ export function ContactSearch({
         <PopoverContent className="w-full p-0" align="start">
           <Command>
             <CommandInput 
-              placeholder="Ad, soyad və ya telefon nömrəsi ilə axtarın..."
+              placeholder="Ad, soyad və ya telefon nömrəsi ilə axtarın... (Esc - bağla)"
               value={searchQuery}
               onValueChange={setSearchQuery}
             />
+            {process.env.NODE_ENV === 'development' && (
+              <div className="px-3 py-1 text-xs text-gray-500 border-b bg-gray-50">
+                Cache: {searchCache.stats.hitRate} hit rate | Search: {searchCache.size} | Recent: {recentCache.size}
+              </div>
+            )}
             <CommandList>
               {isLoading && (
                 <CommandEmpty>Axtarılır...</CommandEmpty>
@@ -123,11 +197,51 @@ export function ContactSearch({
               {!isLoading && searchQuery && contacts.length === 0 && (
                 <CommandEmpty>Heç bir kontakt tapılmadı</CommandEmpty>
               )}
-              {!searchQuery && (
+              {!searchQuery && recentContacts.length === 0 && !isLoadingRecent && (
                 <CommandEmpty>Axtarmaq üçün ad, soyad və ya telefon daxil edin</CommandEmpty>
               )}
+              {!searchQuery && isLoadingRecent && (
+                <CommandEmpty>Son müştərilər yüklənir...</CommandEmpty>
+              )}
+              {!searchQuery && recentContacts.length > 0 && (
+                <CommandGroup heading="Son Müştərilər">
+                  {recentContacts.map((contact) => (
+                    <CommandItem
+                      key={contact.id}
+                      value={contact.displayName}
+                      onSelect={() => handleSelect(contact)}
+                      className="flex items-center gap-3 p-3"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedContact?.id === contact.id ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <User className="h-4 w-4 text-green-500" />
+                      <div className="flex-1">
+                        <div className="font-medium">{contact.displayName}</div>
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <Phone className="h-3 w-3" />
+                          <span>{contact.phone}</span>
+                          {contact.propertyCount > 0 && (
+                            <Badge variant="outline" className="ml-auto">
+                              {contact.propertyCount} əmlak
+                            </Badge>
+                          )}
+                        </div>
+                        {contact.address && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            {contact.address}
+                          </div>
+                        )}
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
               {contacts.length > 0 && (
-                <CommandGroup>
+                <CommandGroup heading={searchQuery ? "Axtarış Nəticələri" : undefined}>
                   {contacts.map((contact) => (
                     <CommandItem
                       key={contact.id}

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CreateContactRequest, Contact } from '@/types/customer'
+import { useToastContext } from '@/components/providers/toast-provider'
 
 interface CustomerFormProps {
   onSuccess: () => void
@@ -29,6 +30,7 @@ export function CustomerForm({ onSuccess, initialData, editMode = false, custome
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const { toast } = useToastContext()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -76,7 +78,9 @@ export function CustomerForm({ onSuccess, initialData, editMode = false, custome
         // Handle duplicate phone number for new contacts only
         const errorData = await response.json()
         const existingCustomer = errorData.existingContact
-        setError(`Bu telefon nömrəsi artıq istifadə olunur: ${existingCustomer.firstName} ${existingCustomer.lastName} (${existingCustomer.phone})`)
+        const errorMessage = `Bu telefon nömrəsi artıq istifadə olunur: ${existingCustomer.firstName} ${existingCustomer.lastName}`
+        setError(errorMessage)
+        toast.error('Dublikat Telefon', errorMessage)
         setIsLoading(false)
         return
       }
@@ -87,10 +91,16 @@ export function CustomerForm({ onSuccess, initialData, editMode = false, custome
         throw new Error(errorData.error || errorMessage)
       }
 
+      // Success feedback
+      const successMessage = editMode ? 'Müştəri uğurla yeniləndi' : 'Yeni müştəri əlavə edildi'
+      toast.success('Uğurlu əməliyyat', successMessage)
+      
       onSuccess()
       router.refresh()
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Xəta baş verdi')
+      const errorMessage = error instanceof Error ? error.message : 'Xəta baş verdi'
+      setError(errorMessage)
+      toast.error('Xəta', errorMessage)
     } finally {
       setIsLoading(false)
     }

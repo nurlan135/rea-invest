@@ -71,16 +71,26 @@ const CommandEmpty = React.forwardRef<
 ))
 CommandEmpty.displayName = "CommandEmpty"
 
-const CommandGroup = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn("overflow-hidden text-foreground", className)}
-    {...props}
-  />
-))
+interface CommandGroupProps extends React.HTMLAttributes<HTMLDivElement> {
+  heading?: string
+}
+
+const CommandGroup = React.forwardRef<HTMLDivElement, CommandGroupProps>(
+  ({ className, heading, children, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn("overflow-hidden text-foreground", className)}
+      {...props}
+    >
+      {heading && (
+        <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+          {heading}
+        </div>
+      )}
+      {children}
+    </div>
+  )
+)
 CommandGroup.displayName = "CommandGroup"
 
 interface CommandItemProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'onSelect'> {

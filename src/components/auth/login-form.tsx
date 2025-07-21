@@ -30,8 +30,9 @@ export function LoginForm() {
       if (result?.error) {
         setError('Email və ya şifrə yanlışdır')
       } else {
-        // Force a full page reload to ensure proper session handling
-        window.location.href = '/dashboard'
+        // Use Next.js router for proper navigation
+        router.push('/dashboard')
+        router.refresh()
       }
     } catch (err) {
       console.error('Login error:', err)

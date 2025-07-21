@@ -69,9 +69,13 @@ export function MobileNav() {
                       ? 'bg-blue-600 text-white'
                       : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                   )}
+                  title={`${item.name} - ${item.href} ${isActive ? '(aktiv)' : ''}`}
                 >
                   <item.icon className="h-5 w-5" />
-                  {item.name}
+                  <span className="flex-1">{item.name}</span>
+                  {process.env.NODE_ENV === 'development' && item.name === 'Müştərilər' && (
+                    <span className="text-xs bg-green-500 px-1 rounded">OK</span>
+                  )}
                 </Link>
               )
             })}

@@ -1,25 +1,13 @@
 'use client'
 
-import { useState, useEffect, Suspense, lazy } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { PageLoading } from '@/components/ui/page-loading'
+import { LazyWrapper, LazyStatsCards, LazyMonthlyChart, LazyRecentActivities } from '@/components/lazy-components'
 import { useCache } from '@/hooks/useCache'
 import { usePerformance } from '@/hooks/usePerformance'
-
-// Lazy load heavy components for better performance
-const StatsCards = lazy(() => 
-  import('@/components/dashboard/stats-cards').then(m => ({ default: m.StatsCards }))
-)
-
-const MonthlyChart = lazy(() => 
-  import('@/components/dashboard/monthly-chart').then(m => ({ default: m.MonthlyChart }))
-)
-
-const RecentActivities = lazy(() => 
-  import('@/components/dashboard/recent-activities').then(m => ({ default: m.RecentActivities }))
-)
 
 // Types for dashboard data
 interface DashboardStats {
@@ -223,18 +211,18 @@ export default function DashboardPage() {
       </div>
 
       {/* Statistics Cards */}
-      <Suspense fallback={<StatsCardsLoading />}>
+      <LazyWrapper fallback={<StatsCardsLoading />}>
         {analytics ? (
-          <StatsCards analytics={analytics} />
+          <LazyStatsCards analytics={analytics} />
         ) : (
           <StatsCardsLoading />
         )}
-      </Suspense>
+      </LazyWrapper>
 
       {/* Charts Section */}
-      <Suspense fallback={<ChartLoading />}>
+      <LazyWrapper fallback={<ChartLoading />}>
         {monthlyData && monthlyData.length > 0 ? (
-          <MonthlyChart data={monthlyData} />
+          <LazyMonthlyChart data={monthlyData} />
         ) : monthlyLoading ? (
           <ChartLoading />
         ) : (
@@ -251,12 +239,12 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         )}
-      </Suspense>
+      </LazyWrapper>
 
       {/* Recent Activities */}
-      <Suspense fallback={<ActivitiesLoading />}>
+      <LazyWrapper fallback={<ActivitiesLoading />}>
         {(recentProperties || recentTransactions) ? (
-          <RecentActivities 
+          <LazyRecentActivities 
             properties={recentProperties?.slice(0, 5) || []} 
             transactions={recentTransactions?.slice(0, 5) || []} 
           />
@@ -298,7 +286,7 @@ export default function DashboardPage() {
             </Card>
           </div>
         )}
-      </Suspense>
+      </LazyWrapper>
 
       {/* Performance info (development only) */}
       {process.env.NODE_ENV === 'development' && (

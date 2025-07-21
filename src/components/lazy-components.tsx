@@ -18,6 +18,10 @@ export const LazyTransactionsTable = lazy(() =>
   import('./transactions/transactions-table').then(m => ({ default: m.TransactionsTable }))
 )
 
+export const LazyRecentActivities = lazy(() => 
+  import('./dashboard/recent-activities').then(m => ({ default: m.RecentActivities }))
+)
+
 // Wrapper component with loading
 interface LazyWrapperProps {
   children: React.ReactNode

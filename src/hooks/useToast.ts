@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
 
@@ -26,16 +26,27 @@ export function useToast() {
     setToasts(prev => prev.filter(t => t.id !== id))
   }, [])
 
-  const toast = {
-    success: useCallback((title: string, description?: string) => 
-      addToast({ type: 'success', title, description }), [addToast]),
-    error: useCallback((title: string, description?: string) => 
-      addToast({ type: 'error', title, description }), [addToast]),
-    warning: useCallback((title: string, description?: string) => 
-      addToast({ type: 'warning', title, description }), [addToast]),
-    info: useCallback((title: string, description?: string) => 
-      addToast({ type: 'info', title, description }), [addToast])
-  }
+  const toast = useMemo(() => {
+    const safeAddToast = (type: ToastType, title: string, description?: string) => {
+      try {
+        return addToast({ type, title, description })
+      } catch (error) {
+        console.error('Toast error:', error)
+        return ''
+      }
+    }
+
+    return {
+      success: (title: string, description?: string) => 
+        safeAddToast('success', title, description),
+      error: (title: string, description?: string) => 
+        safeAddToast('error', title, description),
+      warning: (title: string, description?: string) => 
+        safeAddToast('warning', title, description),
+      info: (title: string, description?: string) => 
+        safeAddToast('info', title, description)
+    }
+  }, [addToast])
 
   return {
     toasts,

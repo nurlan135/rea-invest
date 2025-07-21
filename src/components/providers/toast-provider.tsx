@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, ReactNode } from 'react'
+import { createContext, useContext, ReactNode } from 'react'
 import { useToast, Toast, ToastType } from '@/hooks/useToast'
 import { ToastContainer } from '@/components/ui/toast'
 

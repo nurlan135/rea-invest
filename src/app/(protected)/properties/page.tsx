@@ -21,7 +21,7 @@ export default function PropertiesPage() {
   // Debounce search to avoid too many filter operations
   const debouncedSearchTerm = useDebounce(searchTerm, 300)
 
-  // Use cache hook for data fetching
+  // Use cache hook for data fetching with enhanced error handling
   const { 
     data: allProperties, 
     isLoading, 
@@ -31,6 +31,13 @@ export default function PropertiesPage() {
     key: 'properties-list',
     ttl: 2 * 60 * 1000 // 2 minutes cache
   })
+
+  // Enhanced error logging
+  if (error) {
+    console.error('Properties page error:', error)
+    console.error('Error type:', typeof error)
+    console.error('Error details:', JSON.stringify(error, null, 2))
+  }
 
   // Ensure allProperties is always an array
   const safeAllProperties = allProperties || []
@@ -102,10 +109,23 @@ export default function PropertiesPage() {
 
   if (error) {
     return (
-      <div className="min-h-96 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-500 mb-4">Xəta: {error}</p>
-          <Button onClick={refetch}>Yenidən Cəhd Et</Button>
+      <div className="container mx-auto p-6">
+        <div className="text-center py-12">
+          <p className="text-red-500 text-lg mb-4">
+            Əmlaklar yüklənərkən xəta baş verdi
+          </p>
+          <p className="text-gray-600 text-sm mb-4">
+            {error.includes('JSON') ? 
+              'Server cavabında format xətası var. Lütfən, səhifəni yeniləyin.' : 
+              error
+            }
+          </p>
+          <div className="space-x-2">
+            <Button onClick={() => refetch()}>Yenidən cəhd et</Button>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Səhifəni yenilə
+            </Button>
+          </div>
         </div>
       </div>
     )

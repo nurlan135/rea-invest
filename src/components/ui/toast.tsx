@@ -85,19 +85,26 @@ interface ToastContainerProps {
 
 export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
   const [isMounted, setIsMounted] = useState(false)
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     setIsMounted(true)
+    setPortalContainer(document.body)
   }, [])
 
-  if (!isMounted) return null
+  if (!isMounted || !portalContainer || toasts.length === 0) return null
 
-  return createPortal(
-    <div className="fixed top-4 right-4 z-50 flex flex-col space-y-2 max-w-sm">
-      {toasts.map(toast => (
-        <Toast key={toast.id} toast={toast} onRemove={onRemove} />
-      ))}
-    </div>,
-    document.body
-  )
+  try {
+    return createPortal(
+      <div className="fixed top-4 right-4 z-50 flex flex-col space-y-2 max-w-sm">
+        {toasts.map(toast => (
+          <Toast key={toast.id} toast={toast} onRemove={onRemove} />
+        ))}
+      </div>,
+      portalContainer
+    )
+  } catch (error) {
+    console.error('ToastContainer portal error:', error)
+    return null
+  }
 }

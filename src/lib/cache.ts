@@ -117,10 +117,30 @@ export async function cachedFetch<T>(
   })
   
   if (!response.ok) {
+    const errorText = await response.text()
+    console.error(`API Error for ${url}:`, {
+      status: response.status,
+      statusText: response.statusText,
+      responseText: errorText
+    })
     throw new Error(`API Error: ${response.status} ${response.statusText}`)
   }
 
-  const data: T = await response.json()
+  // Enhanced JSON parsing with error handling
+  let data: T
+  const responseText = await response.text()
+  
+  try {
+    console.log(`Response from ${url}:`, responseText.substring(0, 200) + '...')
+    data = JSON.parse(responseText)
+  } catch (parseError) {
+    console.error(`JSON Parse Error for ${url}:`, {
+      parseError,
+      responseText: responseText.substring(0, 500),
+      responseHeaders: Object.fromEntries(response.headers.entries())
+    })
+    throw new Error(`JSON Parse Error: ${parseError instanceof Error ? parseError.message : 'Unknown parse error'}`)
+  }
   
   // Cache the result
   cache.set(key, data, ttl)

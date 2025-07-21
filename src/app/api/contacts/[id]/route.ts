@@ -5,8 +5,9 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const session = await getServerSession(authOptions)
     
@@ -15,7 +16,7 @@ export async function GET(
     }
 
     const contact = await prisma.contact.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       include: {
         ownedProperties: {
           select: {
@@ -56,8 +57,9 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const session = await getServerSession(authOptions)
     
@@ -66,7 +68,7 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const contactId = parseInt(params.id)
+    const contactId = parseInt(id)
 
     const contact = await prisma.contact.update({
       where: { id: contactId },
@@ -114,8 +116,9 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params
   try {
     const session = await getServerSession(authOptions)
     
@@ -123,7 +126,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const contactId = parseInt(params.id)
+    const contactId = parseInt(id)
 
     // Əvvəlcə bu müştərinin əmlakları və ya əməliyyatları olub-olmadığını yoxla
     const contact = await prisma.contact.findUnique({

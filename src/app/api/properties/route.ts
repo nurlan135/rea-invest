@@ -11,6 +11,8 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    console.log('Properties API: Session valid, fetching properties...')
+
     // Highly optimized Prisma query - only select needed fields
     const properties = await prisma.property.findMany({
       select: {
@@ -71,7 +73,22 @@ export async function GET() {
     return response
   } catch (error) {
     console.error('Properties fetch error:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      type: typeof error
+    })
+    
+    // Always return JSON response
+    return NextResponse.json({ 
+      error: 'Əmlaklar yüklənərkən xəta baş verdi',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
   }
 }
 
@@ -137,6 +154,21 @@ export async function POST(request: Request) {
     return NextResponse.json(result, { status: 201 })
   } catch (error) {
     console.error('Property creation error:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      type: typeof error
+    })
+    
+    // Always return JSON response
+    return NextResponse.json({ 
+      error: 'Əmlak yaradılarkən xəta baş verdi',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { 
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
   }
 }

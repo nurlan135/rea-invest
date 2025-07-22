@@ -18,6 +18,7 @@ model User {
   updatedAt    DateTime      @updatedAt
   properties   Property[]
   transactions Transaction[]
+  leases       Lease[]
 }
 
 model Contact {
@@ -32,6 +33,7 @@ model Contact {
   address            String?
   ownedProperties    Property[]    @relation("OwnedProperties")
   boughtTransactions Transaction[] @relation("BoughtTransactions")
+  leasesAsTenant     Lease[]       @relation("LeasesAsTenant")
 }
 
 model Property {
@@ -59,6 +61,7 @@ model Property {
   agent            User            @relation(fields: [agentId], references: [id])
   owner            Contact         @relation("OwnedProperties", fields: [ownerId], references: [id])
   transaction      Transaction?
+  lease            Lease?
 }
 
 model Transaction {
@@ -104,6 +107,7 @@ enum UserRole {
 enum ContactType {
   OWNER
   BUYER
+  TENANT
 }
 
 enum DocumentType {
@@ -135,4 +139,50 @@ enum PropertyStatus {
   BEH_VERILIB
   SATILIB
   ICAREYE_VERILIB
+}
+
+model Lease {
+  id            Int         @id @default(autoincrement())
+  propertyId    Int         @unique
+  tenantId      Int
+  agentId       Int
+  startDate     DateTime
+  endDate       DateTime
+  rentAmount    Decimal
+  paymentDueDay Int
+  depositAmount Decimal?
+  status        LeaseStatus @default(ACTIVE)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  property Property     @relation(fields: [propertyId], references: [id])
+  tenant   Contact      @relation("LeasesAsTenant", fields: [tenantId], references: [id])
+  agent    User         @relation(fields: [agentId], references: [id])
+  payments RentPayment[]
+}
+
+model RentPayment {
+  id          Int           @id @default(autoincrement())
+  leaseId     Int
+  paymentDate DateTime
+  amount      Decimal
+  forMonth    Int
+  forYear     Int
+  status      PaymentStatus @default(PAID)
+  notes       String?
+  createdAt   DateTime      @default(now())
+
+  lease Lease @relation(fields: [leaseId], references: [id])
+}
+
+enum LeaseStatus {
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+enum PaymentStatus {
+  PAID
+  OVERDUE
+  PARTIAL
 }

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Badge } from '@/components/ui/badge'
@@ -18,7 +17,7 @@ interface Contact {
   fatherName?: string
   phone: string
   address?: string
-  type: 'OWNER' | 'BUYER'
+  type: 'OWNER' | 'BUYER' | 'TENANT'
   displayName: string
   propertyCount: number
 }
@@ -28,13 +27,15 @@ interface ContactSearchProps {
   selectedContact: Contact | null
   placeholder?: string
   disabled?: boolean
+  filterType?: 'OWNER' | 'BUYER' | 'TENANT'
 }
 
 export function ContactSearch({ 
   onContactSelect, 
   selectedContact, 
   placeholder = "Kontakt axtarın...",
-  disabled = false 
+  disabled = false,
+  filterType
 }: ContactSearchProps) {
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -52,7 +53,8 @@ export function ContactSearch({
     const loadRecentContacts = async () => {
       if (!open) return
       
-      const cacheKey = 'recent-owners'
+      const contactType = filterType || 'OWNER'
+      const cacheKey = `recent-${contactType.toLowerCase()}`
       const cachedResults = recentCache.get(cacheKey)
       
       if (cachedResults) {
@@ -64,7 +66,7 @@ export function ContactSearch({
       
       setIsLoadingRecent(true)
       try {
-        const response = await fetch('/api/contacts/recent?limit=10&type=OWNER')
+        const response = await fetch(`/api/contacts/recent?limit=10&type=${contactType}`)
         if (response.ok) {
           const results = await response.json()
           setRecentContacts(results)
@@ -78,7 +80,7 @@ export function ContactSearch({
     }
 
     loadRecentContacts()
-  }, [open])
+  }, [open, filterType])
 
   // Search contacts when query changes
   useEffect(() => {
@@ -98,7 +100,8 @@ export function ContactSearch({
 
       setIsLoading(true)
       try {
-        const response = await fetch(`/api/contacts/search?q=${encodeURIComponent(debouncedSearchQuery)}&limit=20`)
+        const typeParam = filterType ? `&type=${filterType}` : ''
+        const response = await fetch(`/api/contacts/search?q=${encodeURIComponent(debouncedSearchQuery)}&limit=20${typeParam}`)
         if (response.ok) {
           const results = await response.json()
           setContacts(results)
@@ -115,7 +118,7 @@ export function ContactSearch({
     }
 
     searchContacts()
-  }, [debouncedSearchQuery])
+  }, [debouncedSearchQuery, filterType])
 
   const handleSelect = (contact: Contact) => {
     onContactSelect(contact)

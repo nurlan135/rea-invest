@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
 import { ContactSearch } from '@/components/contacts/contact-search'
 import { invalidateCache } from '@/lib/cache'
 
@@ -48,7 +47,13 @@ export function PropertyForm({ onSuccess }: { onSuccess: () => void }) {
     ownerFirstName: '',
     ownerLastName: '',
     ownerFatherName: '',
-    ownerPhone: ''
+    ownerPhone: '',
+    // Rental-specific fields
+    rentAmount: '',
+    depositAmount: '',
+    availabilityDate: '',
+    furnished: '',
+    utilitiesIncluded: ''
   })
   const [selectedOwner, setSelectedOwner] = useState<Contact | null>(null)
   const [useExistingOwner, setUseExistingOwner] = useState(false)
@@ -290,6 +295,72 @@ export function PropertyForm({ onSuccess }: { onSuccess: () => void }) {
               </Select>
             </div>
           </div>
+
+          {/* Rental-specific fields - only show when purpose is ICARE */}
+          {formData.purpose === 'ICARE' && (
+            <div className="border-t pt-4 space-y-4">
+              <h3 className="font-medium text-blue-700">İcarə Məlumatları</h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Aylıq kirayə (₼)</label>
+                  <Input
+                    type="number"
+                    placeholder="500"
+                    value={formData.rentAmount}
+                    onChange={(e) => setFormData({...formData, rentAmount: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Depozit məbləği (₼)</label>
+                  <Input
+                    type="number"
+                    placeholder="1000"
+                    value={formData.depositAmount}
+                    onChange={(e) => setFormData({...formData, depositAmount: e.target.value})}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Mövcudluq tarixi</label>
+                  <Input
+                    type="date"
+                    value={formData.availabilityDate}
+                    onChange={(e) => setFormData({...formData, availabilityDate: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Əşya vəziyyəti</label>
+                  <Select value={formData.furnished} onValueChange={(value) => setFormData({...formData, furnished: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Əşya vəziyyəti" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="FULLY_FURNISHED">Tam əşyalı</SelectItem>
+                      <SelectItem value="PARTIALLY_FURNISHED">Qismən əşyalı</SelectItem>
+                      <SelectItem value="UNFURNISHED">Əşyasız</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Kommunal xərclər</label>
+                <Select value={formData.utilitiesIncluded} onValueChange={(value) => setFormData({...formData, utilitiesIncluded: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Kommunal xərclərin daxil olunması" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL_INCLUDED">Hamısı daxildir</SelectItem>
+                    <SelectItem value="PARTIAL_INCLUDED">Qismən daxildir</SelectItem>
+                    <SelectItem value="NOT_INCLUDED">Daxil deyil</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
 
           {/* Sahib məlumatları */}
           <div className="border-t pt-4">

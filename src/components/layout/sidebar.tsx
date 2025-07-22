@@ -11,12 +11,14 @@ import {
   Receipt, 
   BarChart3,
   Settings,
-  ContactRound
+  ContactRound,
+  File
 } from 'lucide-react'
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: Home, preload: ['/api/analytics/dashboard'] },
   { name: 'Əmlaklar', href: '/properties', icon: Building, preload: ['/api/properties'] },
+  { name: 'İcarə', href: '/leases', icon: File, preload: ['/api/leases'] },
   { name: 'Agentlər', href: '/agents', icon: Users, preload: ['/api/agents'] },
   { name: 'Müştərilər', href: '/customers', icon: ContactRound, preload: ['/api/contacts'] },
   { name: 'Əməliyyatlar', href: '/transactions', icon: Receipt, preload: ['/api/transactions'] },

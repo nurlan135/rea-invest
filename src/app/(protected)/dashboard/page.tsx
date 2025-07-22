@@ -144,20 +144,35 @@ export default function DashboardPage() {
   })
 
   const { 
-    data: recentProperties, 
+    data: propertiesResponse, 
     isLoading: propertiesLoading 
-  } = useCache<RecentProperty[]>('/api/properties', {
+  } = useCache<{data: RecentProperty[]}>('/api/properties', {
     key: 'dashboard-recent-properties',
     ttl: 1 * 60 * 1000 // 1 minute
   })
 
   const { 
-    data: recentTransactions, 
+    data: transactionsResponse, 
     isLoading: transactionsLoading 
-  } = useCache<RecentTransaction[]>('/api/transactions', {
+  } = useCache<{data: RecentTransaction[]}>('/api/transactions', {
     key: 'dashboard-recent-transactions',  
     ttl: 1 * 60 * 1000 // 1 minute
   })
+
+  // Extract arrays from API responses with safety checks
+  console.log('Debug - propertiesResponse:', propertiesResponse)
+  console.log('Debug - transactionsResponse:', transactionsResponse)
+  
+  // Ensure we always have arrays, even if API returns unexpected structure
+  const recentProperties = Array.isArray(propertiesResponse?.data) 
+    ? propertiesResponse.data 
+    : []
+  const recentTransactions = Array.isArray(transactionsResponse?.data) 
+    ? transactionsResponse.data 
+    : []
+    
+  console.log('Debug - recentProperties (isArray):', Array.isArray(recentProperties), recentProperties)
+  console.log('Debug - recentTransactions (isArray):', Array.isArray(recentTransactions), recentTransactions)
 
   // Show page loading if initial data is loading
   if (analyticsLoading && !analytics) {
@@ -243,10 +258,10 @@ export default function DashboardPage() {
 
       {/* Recent Activities */}
       <LazyWrapper fallback={<ActivitiesLoading />}>
-        {(recentProperties || recentTransactions) ? (
+        {(Array.isArray(recentProperties) && recentProperties.length > 0) || (Array.isArray(recentTransactions) && recentTransactions.length > 0) ? (
           <LazyRecentActivities 
-            properties={recentProperties?.slice(0, 5) || []} 
-            transactions={recentTransactions?.slice(0, 5) || []} 
+            properties={Array.isArray(recentProperties) ? recentProperties.slice(0, 5) : []} 
+            transactions={Array.isArray(recentTransactions) ? recentTransactions.slice(0, 5) : []} 
           />
         ) : (propertiesLoading || transactionsLoading) ? (
           <ActivitiesLoading />

@@ -34,10 +34,12 @@ export const config = {
     '/customers/:path*',
     '/reports/:path*',
     '/settings/:path*',
+    '/admin/:path*',
     '/api/properties/:path*',
     '/api/transactions/:path*',
     '/api/contacts/:path*',
     '/api/analytics/:path*',
-    '/api/export/:path*'
+    '/api/export/:path*',
+    '/api/admin/:path*'
   ]
 }

@@ -25,7 +25,7 @@ export function useMultiTabSync(options: MultiTabSyncOptions = {}) {
   } = options
 
   const { data: session, status } = useSession()
-  const tabIdRef = useRef<string>()
+  const tabIdRef = useRef<string | undefined>(undefined)
   const lastHeartbeatRef = useRef<number>(0)
 
   // Generate unique tab ID
@@ -106,7 +106,7 @@ export function useMultiTabSync(options: MultiTabSyncOptions = {}) {
             break
             
           case 'refresh':
-            if (session && syncData.userId === session.user.id) {
+            if (session && session.user && session.user.id && syncData.userId === session.user.id) {
               console.log('Session refreshed in other tab')
               // Could trigger a session refresh here if needed
             }
@@ -153,7 +153,7 @@ export function useMultiTabSync(options: MultiTabSyncOptions = {}) {
     if (!enabled) return
 
     const handleBeforeUnload = () => {
-      if (session) {
+      if (session && session.user && session.user.id) {
         // Use synchronous localStorage for beforeunload
         const syncData: SessionSyncData = {
           action: 'logout',

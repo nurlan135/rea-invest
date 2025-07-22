@@ -1,20 +1,52 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { createPropertySchema, propertyQuerySchema } from '@/lib/validations'
+import { withErrorHandling, createAuthError } from '@/lib/error-handler'
 
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+export const GET = withErrorHandling(async (request: NextRequest) => {
+  const session = await getServerSession(authOptions)
+  
+  if (!session) {
+    throw createAuthError()
+  }
 
-    console.log('Properties API: Session valid, fetching properties...')
+  // Validate query parameters
+  const { searchParams } = new URL(request.url)
+  const queryParams = Object.fromEntries(searchParams.entries())
+  
+  const validatedQuery = propertyQuerySchema.parse(queryParams)
+  const { search, district, propertyType, purpose, status, minArea, maxArea, page = 1, limit = 10 } = validatedQuery || {}
+  
+  // Build where condition  
+  const where: Record<string, unknown> = {}
+  
+  if (search) {
+    where.OR = [
+      { district: { contains: search, mode: 'insensitive' } },
+      { streetAddress: { contains: search, mode: 'insensitive' } },
+      { documentNumber: { contains: search, mode: 'insensitive' } },
+      { projectName: { contains: search, mode: 'insensitive' } }
+    ]
+  }
+  
+  if (district) where.district = district
+  if (propertyType) where.propertyType = propertyType
+  if (purpose) where.purpose = purpose
+  if (status) where.status = status
+  
+  if (minArea !== undefined || maxArea !== undefined) {
+    where.area = {}
+    if (minArea !== undefined) where.area.gte = minArea
+    if (maxArea !== undefined) where.area.lte = maxArea
+  }
 
-    // Highly optimized Prisma query - only select needed fields
-    const properties = await prisma.property.findMany({
+  console.log('Properties API: Session valid, fetching properties...')
+
+  const [properties, total] = await Promise.all([
+    prisma.property.findMany({
+      where,
       select: {
         id: true,
         documentNumber: true,
@@ -62,113 +94,80 @@ export async function GET() {
       },
       orderBy: {
         createdAt: 'desc'
-      }
-    })
+      },
+      skip: (page - 1) * limit,
+      take: limit
+    }),
+    prisma.property.count({ where })
+  ])
 
-    // Add performance headers
-    const response = NextResponse.json(properties)
-    response.headers.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=300')
-    response.headers.set('X-Total-Count', properties.length.toString())
-    
-    return response
-  } catch (error) {
-    console.error('Properties fetch error:', error)
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      type: typeof error
-    })
-    
-    // Always return JSON response
-    return NextResponse.json({ 
-      error: 'Əmlaklar yüklənərkən xəta baş verdi',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { 
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-  }
-}
+  return NextResponse.json({
+    data: properties,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
+    }
+  }, {
+    headers: {
+      'Cache-Control': 'public, max-age=120, stale-while-revalidate=300',
+      'X-Total-Count': total.toString()
+    }
+  })
+})
 
 // Optimized POST for creating properties
-export async function POST(request: Request) {
-  try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+export const POST = withErrorHandling(async (request: NextRequest) => {
+  const session = await getServerSession(authOptions)
+  
+  if (!session) {
+    throw createAuthError()
+  }
 
-    const body = await request.json()
+  const body = await request.json()
+  
+  // Validate request body
+  const validatedData = createPropertySchema.parse(body)
+  
+  // Use transaction for data consistency and performance
+  const result = await prisma.$transaction(async (tx) => {
+    // Auto-generate document number efficiently
+    const lastProperty = await tx.property.findFirst({
+      select: { id: true },
+      orderBy: { id: 'desc' }
+    })
     
-    // Use transaction for data consistency and performance
-    const result = await prisma.$transaction(async (tx: any) => {
-      // Auto-generate document number efficiently
-      const lastProperty = await tx.property.findFirst({
-        select: { id: true },
-        orderBy: { id: 'desc' }
-      })
-      
-      const nextNumber = lastProperty ? lastProperty.id + 1 : 1
-      const documentNumber = `REA-${nextNumber.toString().padStart(4, '0')}`
+    const nextNumber = lastProperty ? lastProperty.id + 1 : 1
+    const documentNumber = `REA-${nextNumber.toString().padStart(4, '0')}`
 
-      // Create property
-      const property = await tx.property.create({
-        data: {
-          documentNumber,
-          registrationDate: new Date(),
-          district: body.district,
-          projectName: body.projectName,
-          streetAddress: body.streetAddress,
-          apartmentNumber: body.apartmentNumber,
-          roomCount: body.roomCount,
-          area: parseFloat(body.area),
-          floor: parseInt(body.floor),
-          documentType: body.documentType,
-          repairStatus: body.repairStatus,
-          propertyType: body.propertyType,
-          purpose: body.purpose,
-          notes: body.notes,
-          ownerId: parseInt(body.ownerId),
-          agentId: parseInt(session.user.id)
-        },
-        select: {
-          id: true,
-          documentNumber: true,
-          district: true,
-          streetAddress: true,
-          owner: {
-            select: {
-              firstName: true,
-              lastName: true
-            }
+    // Create property
+    const property = await tx.property.create({
+      data: {
+        documentNumber,
+        registrationDate: new Date(),
+        ...validatedData,
+        agentId: parseInt(session.user.id)
+      },
+      select: {
+        id: true,
+        documentNumber: true,
+        district: true,
+        streetAddress: true,
+        owner: {
+          select: {
+            firstName: true,
+            lastName: true
           }
         }
-      })
-
-      return property
-    })
-
-    return NextResponse.json(result, { status: 201 })
-  } catch (error) {
-    console.error('Property creation error:', error)
-    console.error('Error details:', {
-      message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      type: typeof error
-    })
-    
-    // Always return JSON response
-    return NextResponse.json({ 
-      error: 'Əmlak yaradılarkən xəta baş verdi',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { 
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json'
       }
     })
-  }
-}
+
+    return property
+  })
+
+  return NextResponse.json({
+    message: 'Əmlak uğurla yaradıldı',
+    data: result
+  }, { status: 201 })
+})

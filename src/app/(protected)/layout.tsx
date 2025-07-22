@@ -18,9 +18,13 @@ export default async function ProtectedLayout({
     redirect('/login')
   }
 
+  // Sabit timeout dəyərləri hydration uyğunsuzluğunu önləmək üçün
+  const TIMEOUT_MINUTES = 480 // 8 saat
+  const WARNING_MINUTES = 5
+
   return (
     <Providers>
-      <AutoLogoutProvider timeoutMinutes={30} warningMinutes={5}>
+      <AutoLogoutProvider timeoutMinutes={TIMEOUT_MINUTES} warningMinutes={WARNING_MINUTES}>
         <div className="min-h-screen bg-gray-50">
           <Header />
           <div className="flex">
@@ -31,7 +35,8 @@ export default async function ProtectedLayout({
               {children}
             </main>
           </div>
-          <NavigationDebug />
+          {/* NavigationDebug hydration xətasına səbəb olduğu üçün söndürüldü */}
+          {/* <NavigationDebug /> */}
         </div>
       </AutoLogoutProvider>
     </Providers>

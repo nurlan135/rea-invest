@@ -2,104 +2,113 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { createContactSchema, contactQuerySchema } from '@/lib/validations'
+import { withErrorHandling, createAuthError, createConflictError } from '@/lib/error-handler'
 
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions)
+export const GET = withErrorHandling(async (request: NextRequest) => {
+  const session = await getServerSession(authOptions)
+  
+  if (!session) {
+    throw createAuthError()
+  }
+
+    // Validate query parameters
+    const { searchParams } = new URL(request.url)
+    const queryParams = Object.fromEntries(searchParams.entries())
     
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const validatedQuery = contactQuerySchema.parse(queryParams)
+    const { search, type, page = 1, limit = 10 } = validatedQuery || {}
+    
+    // Build where condition
+    const where: Record<string, unknown> = {}
+    
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } }
+      ]
+    }
+    
+    if (type) {
+      where.type = type
     }
 
-    const contacts = await prisma.contact.findMany({
-      include: {
-        ownedProperties: {
-          select: {
-            id: true,
-            documentNumber: true,
-            district: true,
-            streetAddress: true,
-            status: true
-          }
-        },
-        boughtTransactions: {
-          select: {
-            id: true,
-            salePrice: true,
-            saleDate: true,
-            property: {
-              select: {
-                documentNumber: true,
-                district: true,
-                streetAddress: true
+    const [contacts, total] = await Promise.all([
+      prisma.contact.findMany({
+        where,
+        include: {
+          ownedProperties: {
+            select: {
+              id: true,
+              documentNumber: true,
+              district: true,
+              streetAddress: true,
+              status: true
+            }
+          },
+          boughtTransactions: {
+            select: {
+              id: true,
+              salePrice: true,
+              saleDate: true,
+              property: {
+                select: {
+                  documentNumber: true,
+                  district: true,
+                  streetAddress: true
+                }
               }
             }
           }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    })
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        skip: (page - 1) * limit,
+        take: limit
+      }),
+      prisma.contact.count({ where })
+    ])
 
-    return NextResponse.json(contacts)
-  } catch (error) {
-    console.error('Contacts fetch error:', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  return NextResponse.json({
+    data: contacts,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit)
     }
+  })
+})
+
+export const POST = withErrorHandling(async (request: NextRequest) => {
+  const session = await getServerSession(authOptions)
+  
+  if (!session) {
+    throw createAuthError()
+  }
 
     const body = await request.json()
     
+    // Validate request body
+    const validatedData = createContactSchema.parse(body)
+    
     // Check for existing contact with same phone number
     const existingContact = await prisma.contact.findUnique({
-      where: { phone: body.phone }
+      where: { phone: validatedData.phone }
     })
     
     if (existingContact) {
-      // Return 409 Conflict for duplicate phone number
-      console.log('Contact with phone already exists:', existingContact.id)
-      return NextResponse.json({ 
-        error: 'Bu telefon nömrəsi ilə müştəri artıq mövcuddur',
-        existingContact: {
-          id: existingContact.id,
-          firstName: existingContact.firstName,
-          lastName: existingContact.lastName,
-          phone: existingContact.phone
-        }
-      }, { status: 409 })
+      throw createConflictError('Bu telefon nömrəsi ilə müştəri artıq mövcuddur')
     }
     
     const contact = await prisma.contact.create({
-      data: {
-        firstName: body.firstName,
-        lastName: body.lastName,
-        fatherName: body.fatherName,
-        phone: body.phone,
-        address: body.address,
-        type: body.type
-      }
+      data: validatedData
     })
 
-    return NextResponse.json(contact, { status: 201 })
-  } catch (error) {
-    console.error('Contact creation error:', error)
-    
-    // Handle unique constraint violations specifically
-    if (error instanceof Error && error.message.includes('Unique constraint failed')) {
-      return NextResponse.json({ 
-        error: 'Bu telefon nömrəsi ilə müştəri artıq mövcuddur' 
-      }, { status: 400 })
-    }
-    
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
-  }
-}
+  return NextResponse.json({
+    message: 'Müştəri uğurla yaradıldı',
+    data: contact
+  }, { status: 201 })
+})

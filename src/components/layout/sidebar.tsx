@@ -106,9 +106,6 @@ export function Sidebar() {
             >
               <item.icon className="h-5 w-5 flex-shrink-0" />
               <span className="truncate">{item.name}</span>
-              {process.env.NODE_ENV === 'development' && item.name === 'Müştərilər' && (
-                <span className="ml-auto text-xs bg-green-500 px-1 rounded">OK</span>
-              )}
             </Link>
           )
         })}
